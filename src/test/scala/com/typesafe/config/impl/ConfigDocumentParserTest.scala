@@ -1,6 +1,6 @@
 package com.typesafe.config.impl
 
-import com.typesafe.config.ConfigSyntax.JSON
+import com.cleanroommc.cleanhocon.ConfigSyntax.JSON
 import com.typesafe.config.{ ConfigException, ConfigParseOptions, ConfigSyntax }
 import org.junit.Assert._
 import org.junit.Test

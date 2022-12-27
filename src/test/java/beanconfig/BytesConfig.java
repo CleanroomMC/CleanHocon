@@ -1,6 +1,6 @@
 package beanconfig;
 
-import com.typesafe.config.ConfigMemorySize;
+import com.cleanroommc.cleanhocon.ConfigMemorySize;
 
 public class BytesConfig {
 

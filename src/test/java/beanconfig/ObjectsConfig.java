@@ -1,7 +1,7 @@
 package beanconfig;
 
 
-import com.typesafe.config.Optional;
+import com.cleanroommc.cleanhocon.Optional;
 
 public class ObjectsConfig {
     public static class ValueObject {

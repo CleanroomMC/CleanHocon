@@ -3,10 +3,10 @@ package beanconfig;
 import java.util.List;
 import java.time.Duration;
 
-import com.typesafe.config.Config;
-import com.typesafe.config.ConfigMemorySize;
-import com.typesafe.config.ConfigObject;
-import com.typesafe.config.ConfigValue;
+import com.cleanroommc.cleanhocon.Config;
+import com.cleanroommc.cleanhocon.ConfigMemorySize;
+import com.cleanroommc.cleanhocon.ConfigObject;
+import com.cleanroommc.cleanhocon.ConfigValue;
 
 public class ArraysConfig {
 
