@@ -146,11 +146,11 @@ final class ConfigParser {
             String deepest = i.previous();
             AbstractConfigObject o = new SimpleConfigObject(value.origin().withComments(null),
                     Collections.<String, AbstractConfigValue> singletonMap(
-                            deepest, value));
+                            deepest, value), ConfigSortingOptions.defaultSorter());
             while (i.hasPrevious()) {
                 Map<String, AbstractConfigValue> m = Collections.<String, AbstractConfigValue> singletonMap(
                         i.previous(), o);
-                o = new SimpleConfigObject(value.origin().withComments(null), m);
+                o = new SimpleConfigObject(value.origin().withComments(null), m, ConfigSortingOptions.defaultSorter());
             }
 
             return o;
@@ -215,7 +215,7 @@ final class ConfigParser {
         }
 
         private AbstractConfigObject parseObject(ConfigNodeObject n) {
-            Map<String, AbstractConfigValue> values = new HashMap<String, AbstractConfigValue>();
+            Map<String, AbstractConfigValue> values = ConfigSortingOptions.defaultSorter().getMapBacking();
             SimpleConfigOrigin objectOrigin = lineOrigin();
             boolean lastWasNewline = false;
 
@@ -345,7 +345,7 @@ final class ConfigParser {
                 }
             }
 
-            return new SimpleConfigObject(objectOrigin, values);
+            return new SimpleConfigObject(objectOrigin, values, ConfigSortingOptions.defaultSorter());
         }
 
         private SimpleConfigList parseArray(ConfigNodeArray n) {

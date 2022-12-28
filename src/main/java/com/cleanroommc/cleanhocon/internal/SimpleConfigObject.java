@@ -1,27 +1,14 @@
 /**
- *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ * Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
  */
 package com.cleanroommc.cleanhocon.internal;
 
 import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.math.BigInteger;
-import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigObject;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValue;
+import com.cleanroommc.cleanhocon.*;
 
 final class SimpleConfigObject extends AbstractConfigObject implements Serializable {
 
@@ -29,12 +16,13 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
     // this map should never be modified - assume immutable
     final private Map<String, AbstractConfigValue> value;
+    final private ConfigSorter configSorter;
     final private boolean resolved;
     final private boolean ignoresFallbacks;
 
     SimpleConfigObject(ConfigOrigin origin,
-            Map<String, AbstractConfigValue> value, ResolveStatus status,
-            boolean ignoresFallbacks) {
+                       Map<String, AbstractConfigValue> value, ResolveStatus status,
+                       boolean ignoresFallbacks, ConfigSorter configSorter) {
         super(origin);
         if (value == null)
             throw new ConfigException.BugOrBroken(
@@ -42,6 +30,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         this.value = value;
         this.resolved = status == ResolveStatus.RESOLVED;
         this.ignoresFallbacks = ignoresFallbacks;
+        this.configSorter = configSorter;
 
         // Kind of an expensive debug check. Comment out?
         if (status != ResolveStatus.fromValues(value.values()))
@@ -49,8 +38,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     SimpleConfigObject(ConfigOrigin origin,
-            Map<String, AbstractConfigValue> value) {
-        this(origin, value, ResolveStatus.fromValues(value.values()), false /* ignoresFallbacks */);
+                       Map<String, AbstractConfigValue> value, ConfigSorter configSorter) {
+        this(origin, value, ResolveStatus.fromValues(value.values()), false /* ignoresFallbacks */, configSorter);
     }
 
     @Override
@@ -88,7 +77,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             return null;
         } else {
             return new SimpleConfigObject(origin(), Collections.singletonMap(key, v),
-                    v.resolveStatus(), ignoresFallbacks);
+                    v.resolveStatus(), ignoresFallbacks, configSorter);
         }
     }
 
@@ -97,8 +86,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         SimpleConfigObject o = withOnlyPathOrNull(path);
         if (o == null) {
             return new SimpleConfigObject(origin(),
-                    Collections.<String, AbstractConfigValue> emptyMap(), ResolveStatus.RESOLVED,
-                    ignoresFallbacks);
+                    Collections.<String, AbstractConfigValue>emptyMap(), ResolveStatus.RESOLVED,
+                    ignoresFallbacks, configSorter);
         } else {
             return o;
         }
@@ -112,23 +101,22 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
         if (v != null && next != null && v instanceof AbstractConfigObject) {
             v = ((AbstractConfigObject) v).withoutPath(next);
-            Map<String, AbstractConfigValue> updated = new HashMap<String, AbstractConfigValue>(
-                    value);
+            Map<String, AbstractConfigValue> updated = configSorter.getMapBacking();
+            updated.putAll(value);
             updated.put(key, v);
             return new SimpleConfigObject(origin(), updated, ResolveStatus.fromValues(updated
-                    .values()), ignoresFallbacks);
+                    .values()), ignoresFallbacks, configSorter);
         } else if (next != null || v == null) {
             // can't descend, nothing to remove
             return this;
         } else {
-            Map<String, AbstractConfigValue> smaller = new HashMap<String, AbstractConfigValue>(
-                    value.size() - 1);
+            Map<String, AbstractConfigValue> smaller = configSorter.getMapBacking();
             for (Map.Entry<String, AbstractConfigValue> old : value.entrySet()) {
                 if (!old.getKey().equals(key))
                     smaller.put(old.getKey(), old.getValue());
             }
             return new SimpleConfigObject(origin(), smaller, ResolveStatus.fromValues(smaller
-                    .values()), ignoresFallbacks);
+                    .values()), ignoresFallbacks, configSorter);
         }
     }
 
@@ -142,12 +130,13 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         if (value.isEmpty()) {
             newMap = Collections.singletonMap(key, (AbstractConfigValue) v);
         } else {
-            newMap = new HashMap<String, AbstractConfigValue>(value);
+            newMap = configSorter.getMapBacking();
+            newMap.putAll(value);
             newMap.put(key, (AbstractConfigValue) v);
         }
 
         return new SimpleConfigObject(origin(), newMap, ResolveStatus.fromValues(newMap.values()),
-                ignoresFallbacks);
+                ignoresFallbacks, configSorter);
     }
 
     @Override
@@ -177,8 +166,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     private SimpleConfigObject newCopy(ResolveStatus newStatus, ConfigOrigin newOrigin,
-            boolean newIgnoresFallbacks) {
-        return new SimpleConfigObject(newOrigin, value, newStatus, newIgnoresFallbacks);
+                                       boolean newIgnoresFallbacks) {
+        return new SimpleConfigObject(newOrigin, value, newStatus, newIgnoresFallbacks, configSorter);
     }
 
     @Override
@@ -201,7 +190,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
     @Override
     public SimpleConfigObject replaceChild(AbstractConfigValue child, AbstractConfigValue replacement) {
-        HashMap<String, AbstractConfigValue> newChildren = new HashMap<String, AbstractConfigValue>(value);
+        Map<String, AbstractConfigValue> newChildren = configSorter.getMapBacking();
+        newChildren.putAll(value);
         for (Map.Entry<String, AbstractConfigValue> old : newChildren.entrySet()) {
             if (old.getValue() == child) {
                 if (replacement != null)
@@ -210,7 +200,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                     newChildren.remove(old.getKey());
 
                 return new SimpleConfigObject(origin(), newChildren, ResolveStatus.fromValues(newChildren.values()),
-                        ignoresFallbacks);
+                        ignoresFallbacks, configSorter);
             }
         }
         throw new ConfigException.BugOrBroken("SimpleConfigObject.replaceChild did not find " + child + " in " + this);
@@ -238,7 +228,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
     @Override
     public Map<String, Object> unwrapped() {
-        Map<String, Object> m = new HashMap<String, Object>();
+        Map<String, Object> m = configSorter.getMapBacking();
         for (Map.Entry<String, AbstractConfigValue> e : value.entrySet()) {
             m.put(e.getKey(), e.getValue().unwrapped());
         }
@@ -258,8 +248,8 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
         boolean changed = false;
         boolean allResolved = true;
-        Map<String, AbstractConfigValue> merged = new HashMap<String, AbstractConfigValue>();
-        Set<String> allKeys = new HashSet<String>();
+        Map<String, AbstractConfigValue> merged = configSorter.getMapBacking();
+        LinkedHashSet<String> allKeys = new LinkedHashSet<>();// TODO: 28/12/2022
         allKeys.addAll(this.keySet());
         allKeys.addAll(fallback.keySet());
         for (String key : allKeys) {
@@ -287,7 +277,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
         if (changed)
             return new SimpleConfigObject(mergeOrigins(this, fallback), merged, newResolveStatus,
-                    newIgnoresFallbacks);
+                    newIgnoresFallbacks, configSorter);
         else if (newResolveStatus != resolveStatus() || newIgnoresFallbacks != ignoresFallbacks())
             return newCopy(newResolveStatus, origin(), newIgnoresFallbacks);
         else
@@ -313,14 +303,14 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             AbstractConfigValue modified = modifier.modifyChildMayThrow(k, v);
             if (modified != v) {
                 if (changes == null)
-                    changes = new HashMap<String, AbstractConfigValue>();
+                    changes = configSorter.getMapBacking();
                 changes.put(k, modified);
             }
         }
         if (changes == null) {
             return this;
         } else {
-            Map<String, AbstractConfigValue> modified = new HashMap<String, AbstractConfigValue>();
+            Map<String, AbstractConfigValue> modified = configSorter.getMapBacking();
             boolean sawUnresolved = false;
             for (String k : keySet()) {
                 if (changes.containsKey(k)) {
@@ -341,7 +331,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             }
             return new SimpleConfigObject(origin(), modified,
                     sawUnresolved ? ResolveStatus.UNRESOLVED : ResolveStatus.RESOLVED,
-                    ignoresFallbacks());
+                    ignoresFallbacks(), configSorter);
         }
     }
 
@@ -419,47 +409,6 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         });
     }
 
-    // this is only Serializable to chill out a findbugs warning
-    static final private class RenderComparator implements java.util.Comparator<String>, Serializable {
-        private static final long serialVersionUID = 1L;
-
-        private static boolean isAllDigits(String s) {
-            int length = s.length();
-
-            // empty string doesn't count as a number
-            // string longer than "max number of digits in a long" cannot be parsed as a long
-            if (length == 0)
-                return false;
-
-            for (int i = 0; i < length; ++i) {
-                char c = s.charAt(i);
-
-                if (!Character.isDigit(c))
-                    return false;
-            }
-            return true;
-        }
-
-        // This is supposed to sort numbers before strings,
-        // and sort the numbers numerically. The point is
-        // to make objects which are really list-like
-        // (numeric indices) appear in order.
-        @Override
-        public int compare(String a, String b) {
-            boolean aDigits = isAllDigits(a);
-            boolean bDigits = isAllDigits(b);
-            if (aDigits && bDigits) {
-                return new BigInteger(a).compareTo(new BigInteger(b));
-            } else if (aDigits) {
-                return -1;
-            } else if (bDigits) {
-                return 1;
-            } else {
-                return a.compareTo(b);
-            }
-        }
-    }
-
     @Override
     protected void render(StringBuilder sb, int indent, boolean atRoot, ConfigRenderOptions options) {
         if (isEmpty()) {
@@ -480,7 +429,10 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
             int separatorCount = 0;
             String[] keys = keySet().toArray(new String[size()]);
-            Arrays.sort(keys, new RenderComparator());
+            var render = configSorter.getRendererSorter();
+            if (render != null) {
+                Arrays.sort(keys, render);
+            }
             for (String k : keys) {
                 AbstractConfigValue v;
                 v = value.get(k);
@@ -618,11 +570,10 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     public Set<Map.Entry<String, ConfigValue>> entrySet() {
         // total bloat just to work around lack of type variance
 
-        HashSet<java.util.Map.Entry<String, ConfigValue>> entries = new HashSet<Map.Entry<String, ConfigValue>>();
+        HashSet<java.util.Map.Entry<String, ConfigValue>> entries = new LinkedHashSet<>();
         for (Map.Entry<String, AbstractConfigValue> e : value.entrySet()) {
-            entries.add(new AbstractMap.SimpleImmutableEntry<String, ConfigValue>(
-                    e.getKey(), e
-                    .getValue()));
+            entries.add(new AbstractMap.SimpleImmutableEntry<>(
+                    e.getKey(), e.getValue()));
         }
         return entries;
     }
@@ -655,13 +606,13 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
             return empty();
         else
             return new SimpleConfigObject(origin,
-                    Collections.<String, AbstractConfigValue> emptyMap());
+                    Collections.<String, AbstractConfigValue>emptyMap(), ConfigSortingOptions.defaultSorter());
     }
 
     final static SimpleConfigObject emptyMissing(ConfigOrigin baseOrigin) {
         return new SimpleConfigObject(SimpleConfigOrigin.newSimple(
                 baseOrigin.description() + " (not found)"),
-                Collections.<String, AbstractConfigValue> emptyMap());
+                Collections.<String, AbstractConfigValue>emptyMap(), ConfigSortingOptions.defaultSorter());
     }
 
     // serialization all goes through SerializedConfigValue

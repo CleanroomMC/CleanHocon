@@ -22,13 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.cleanroommc.cleanhocon.Config;
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigList;
-import com.cleanroommc.cleanhocon.ConfigObject;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigValue;
-import com.cleanroommc.cleanhocon.ConfigValueType;
+import com.cleanroommc.cleanhocon.*;
 
 /**
  * Deliberately shoving all the serialization code into this class instead of
@@ -372,7 +366,7 @@ class SerializedConfigValue extends AbstractConfigValue implements Externalizabl
                 AbstractConfigValue v = readValue(in, origin);
                 map.put(key, v);
             }
-            return new SimpleConfigObject(origin, map);
+            return new SimpleConfigObject(origin, map, ConfigSortingOptions.defaultSorter());
         }
         throw new IOException("Unhandled serialized value type: " + st);
     }

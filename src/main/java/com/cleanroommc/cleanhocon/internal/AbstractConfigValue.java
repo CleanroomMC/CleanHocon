@@ -9,12 +9,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigMergeable;
-import com.cleanroommc.cleanhocon.ConfigObject;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValue;
+import com.cleanroommc.cleanhocon.*;
 
 /**
  *
@@ -384,7 +379,7 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
 
     SimpleConfig atKey(ConfigOrigin origin, String key) {
         Map<String, AbstractConfigValue> m = Collections.singletonMap(key, this);
-        return (new SimpleConfigObject(origin, m)).toConfig();
+        return (new SimpleConfigObject(origin, m, ConfigSortingOptions.defaultSorter())).toConfig();
     }
 
     @Override

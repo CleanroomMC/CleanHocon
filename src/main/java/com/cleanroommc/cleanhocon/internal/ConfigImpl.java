@@ -7,24 +7,10 @@ import java.io.File;
 import java.lang.ref.WeakReference;
 import java.net.URL;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.Callable;
 
-import com.cleanroommc.cleanhocon.Config;
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigIncluder;
-import com.cleanroommc.cleanhocon.ConfigMemorySize;
-import com.cleanroommc.cleanhocon.ConfigObject;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigParseOptions;
-import com.cleanroommc.cleanhocon.ConfigParseable;
-import com.cleanroommc.cleanhocon.ConfigValue;
+import com.cleanroommc.cleanhocon.*;
 
 /**
  * Internal implementation detail, not ABI stable, do not touch.
@@ -247,7 +233,7 @@ public class ConfigImpl {
                 return emptyObject(origin);
 
             if (mapMode == FromMapMode.KEYS_ARE_KEYS) {
-                Map<String, AbstractConfigValue> values = new HashMap<String, AbstractConfigValue>();
+                Map<String, AbstractConfigValue> values = ConfigSortingOptions.defaultSorter().getMapBacking();
                 for (Map.Entry<?, ?> entry : ((Map<?, ?>) object).entrySet()) {
                     Object key = entry.getKey();
                     if (!(key instanceof String))
@@ -259,7 +245,7 @@ public class ConfigImpl {
                     values.put((String) key, value);
                 }
 
-                return new SimpleConfigObject(origin, values);
+                return new SimpleConfigObject(origin, values, ConfigSortingOptions.defaultSorter());
             } else {
                 return PropertiesParser.fromPathMap(origin, (Map<?, ?>) object);
             }

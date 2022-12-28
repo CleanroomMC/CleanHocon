@@ -9,12 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigList;
-import com.cleanroommc.cleanhocon.ConfigMergeable;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValue;
+import com.cleanroommc.cleanhocon.*;
 
 // This is just like ConfigDelayedMerge except we know statically
 // that it will turn out to be an object.

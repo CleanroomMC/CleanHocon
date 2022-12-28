@@ -17,6 +17,7 @@ import java.util.Set;
 
 import com.cleanroommc.cleanhocon.ConfigException;
 import com.cleanroommc.cleanhocon.ConfigOrigin;
+import com.cleanroommc.cleanhocon.ConfigSortingOptions;
 
 final class PropertiesParser {
     static AbstractConfigObject parse(Reader reader,
@@ -199,12 +200,12 @@ final class PropertiesParser {
                     .get(parentPath) : root;
 
             AbstractConfigObject o = new SimpleConfigObject(origin, scope,
-                    ResolveStatus.RESOLVED, false /* ignoresFallbacks */);
+                    ResolveStatus.RESOLVED, false /* ignoresFallbacks */, ConfigSortingOptions.defaultSorter());
             parent.put(scopePath.last(), o);
         }
 
         // return root config object
         return new SimpleConfigObject(origin, root, ResolveStatus.RESOLVED,
-                false /* ignoresFallbacks */);
+                false /* ignoresFallbacks */, ConfigSortingOptions.defaultSorter());
     }
 }
