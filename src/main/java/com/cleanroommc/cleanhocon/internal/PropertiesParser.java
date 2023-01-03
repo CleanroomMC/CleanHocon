@@ -17,14 +17,15 @@ import java.util.Set;
 
 import com.cleanroommc.cleanhocon.ConfigException;
 import com.cleanroommc.cleanhocon.ConfigOrigin;
+import com.cleanroommc.cleanhocon.ConfigSorter;
 import com.cleanroommc.cleanhocon.ConfigSortingOptions;
 
 final class PropertiesParser {
     static AbstractConfigObject parse(Reader reader,
-            ConfigOrigin origin) throws IOException {
+            ConfigOrigin origin, ConfigSorter configSorter) throws IOException {
         Properties props = new Properties();
         props.load(reader);
-        return fromProperties(origin, props);
+        return fromProperties(origin, props, configSorter);
     }
 
     static String lastElement(String path) {
@@ -55,14 +56,13 @@ final class PropertiesParser {
         return path;
     }
 
-    static AbstractConfigObject fromProperties(ConfigOrigin origin,
-            Properties props) {
-        return fromEntrySet(origin, props.entrySet());
+    static AbstractConfigObject fromProperties(ConfigOrigin origin, Properties props, ConfigSorter configSorter) {
+        return fromEntrySet(origin, props.entrySet(), configSorter);
     }
 
-    private static <K, V> AbstractConfigObject fromEntrySet(ConfigOrigin origin, Set<Map.Entry<K, V>> entries) {
+    private static <K, V> AbstractConfigObject fromEntrySet(ConfigOrigin origin, Set<Map.Entry<K, V>> entries, ConfigSorter configSorter) {
         final Map<Path, Object> pathMap = getPathMap(entries);
-        return fromPathMap(origin, pathMap, true /* from properties */);
+        return fromPathMap(origin, pathMap, true /* from properties */, configSorter);
     }
 
     private static <K, V> Map<Path, Object> getPathMap(Set<Map.Entry<K, V>> entries) {
@@ -77,12 +77,12 @@ final class PropertiesParser {
         return pathMap;
     }
 
-    static AbstractConfigObject fromStringMap(ConfigOrigin origin, Map<String, String> stringMap) {
-        return fromEntrySet(origin, stringMap.entrySet());
+    static AbstractConfigObject fromStringMap(ConfigOrigin origin, Map<String, String> stringMap, ConfigSorter configSorter) {
+        return fromEntrySet(origin, stringMap.entrySet(), configSorter);
     }
 
     static AbstractConfigObject fromPathMap(ConfigOrigin origin,
-            Map<?, ?> pathExpressionMap) {
+            Map<?, ?> pathExpressionMap, ConfigSorter configSorter) {
         Map<Path, Object> pathMap = new HashMap<Path, Object>();
         for (Map.Entry<?, ?> entry : pathExpressionMap.entrySet()) {
             Object keyObj = entry.getKey();
@@ -93,11 +93,11 @@ final class PropertiesParser {
             Path path = Path.newPath((String) keyObj);
             pathMap.put(path, entry.getValue());
         }
-        return fromPathMap(origin, pathMap, false /* from properties */);
+        return fromPathMap(origin, pathMap, false /* from properties */, configSorter);
     }
 
     private static AbstractConfigObject fromPathMap(ConfigOrigin origin,
-            Map<Path, Object> pathMap, boolean convertedFromProperties) {
+            Map<Path, Object> pathMap, boolean convertedFromProperties, ConfigSorter configSorter) {
         /*
          * First, build a list of paths that will have values, either string or
          * object values.
@@ -164,7 +164,7 @@ final class PropertiesParser {
                 }
             } else {
                 value = ConfigImpl.fromAnyRef(pathMap.get(path), origin,
-                        FromMapMode.KEYS_ARE_PATHS);
+                        FromMapMode.KEYS_ARE_PATHS, configSorter);
             }
             if (value != null)
                 parent.put(last, value);

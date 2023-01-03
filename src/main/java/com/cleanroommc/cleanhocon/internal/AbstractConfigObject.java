@@ -9,13 +9,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigMergeable;
-import com.cleanroommc.cleanhocon.ConfigObject;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValue;
-import com.cleanroommc.cleanhocon.ConfigValueType;
+import com.cleanroommc.cleanhocon.*;
 
 abstract class AbstractConfigObject extends AbstractConfigValue implements ConfigObject, Container {
     final private SimpleConfig config;
@@ -177,7 +171,7 @@ abstract class AbstractConfigObject extends AbstractConfigValue implements Confi
 
     @Override
     abstract ResolveResult<? extends AbstractConfigObject> resolveSubstitutions(ResolveContext context,
-            ResolveSource source)
+            ResolveSource source, ConfigSorter configSorter)
             throws NotPossibleToResolve;
 
     @Override

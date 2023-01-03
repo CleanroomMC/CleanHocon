@@ -1,7 +1,5 @@
-import com.cleanroommc.cleanhocon.Config;
-import com.cleanroommc.cleanhocon.ConfigFactory;
-import com.cleanroommc.cleanhocon.ConfigSortingOptions;
-import com.cleanroommc.cleanhocon.ConfigValueFactory;
+import com.cleanroommc.cleanhocon.*;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -12,33 +10,88 @@ import java.util.Map;
 import java.util.stream.IntStream;
 
 public class OrderedImpTest {
+    static Path configPath = Path.of("./conf.hocon");
     static Map<String, String> stringStringMap = new LinkedHashMap<>();
+    static Map<String, String> nestedStringStringMap = new LinkedHashMap<>();
     static {
         IntStream.rangeClosed(0, 10).
                 forEach(i -> {
                     stringStringMap.put("key:" + i, "val:" + i);
+                    nestedStringStringMap.put("nested-key:" + i, "nested-val:" + i);
                 });
+    }
+
+    @BeforeEach
+    void setup() throws IOException {
+        ConfigSortingOptions.setOverwriteSorter(ConfigSortingOptions.originalSorter());
+        if (Files.exists(configPath)) {
+            Files.delete(configPath);
+        }
     }
 
     @Test
     void basicTest() throws IOException {
-
-        Path configPath = Path.of("./conf.hocon");
-        if (Files.exists(configPath)) {
-            Files.delete(configPath);
-        }
-
         ConfigSortingOptions.setOverwriteSorter(ConfigSortingOptions.orderedSorter());
-        var rootConfig = ConfigValueFactory.fromMap(stringStringMap).toConfig();
-        rootConfig = rootConfig.root().withValue("nested", ConfigValueFactory.fromMap(stringStringMap)).toConfig();
+
+        var configObj = ConfigValueFactory.fromMap(stringStringMap);
+        configObj = configObj.withValue("nested", ConfigValueFactory.fromMap(nestedStringStringMap));
         try (var w = Files.newBufferedWriter(configPath)) {
-            w.write(rootConfig.root().render());
+            w.write(configObj.render());
         }
 
-        rootConfig.root().entrySet().forEach(System.out::println);
+        System.out.println("BASIC PRINT");
+        System.out.println(configObj.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.originalSorter())));
         System.out.println("------------------------------------");
-        Config parsedConfig = ConfigFactory.parseFile(configPath.toFile());
-        parsedConfig.root().entrySet().forEach(System.out::println);
+        System.out.println("SORTED PARSED PRINT");
+        var sortedParsedConfig = ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setConfigSorter(ConfigSortingOptions.orderedSorter())).root();
+        System.out.println(sortedParsedConfig.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.orderedSorter())));
+        System.out.println("------------------------------------");
+        System.out.println("ORIGINAL PARSED PRINT");
+        var originalParsedConfig = ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setConfigSorter(ConfigSortingOptions.originalSorter())).root();
+        System.out.println(originalParsedConfig.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.originalSorter())));
     }
 
+    @Test
+    void basicTest2() throws IOException {
+        ConfigSortingOptions.setOverwriteSorter(ConfigSortingOptions.orderedSorter());
+
+        var configObj = ConfigValueFactory.fromMap(stringStringMap);
+        configObj = configObj.withValue("nested", ConfigValueFactory.fromMap(nestedStringStringMap, ConfigSortingOptions.originalSorter()));
+        try (var w = Files.newBufferedWriter(configPath)) {
+            w.write(configObj.render());
+        }
+
+        System.out.println("BASIC PRINT");
+        System.out.println(configObj.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.originalSorter())));
+        System.out.println("------------------------------------");
+        System.out.println("SORTED PARSED PRINT");
+        var sortedParsedConfig = ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setConfigSorter(ConfigSortingOptions.orderedSorter())).root();
+        System.out.println(sortedParsedConfig.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.orderedSorter())));
+        System.out.println("------------------------------------");
+        System.out.println("ORIGINAL PARSED PRINT");
+        var originalParsedConfig = ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setConfigSorter(ConfigSortingOptions.originalSorter())).root();
+        System.out.println(originalParsedConfig.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.originalSorter())));
+    }
+
+    @Test
+    void basicTest3() throws IOException {
+        ConfigSortingOptions.setOverwriteSorter(ConfigSortingOptions.originalSorter());
+
+        var configObj = ConfigValueFactory.fromMap(stringStringMap, ConfigSortingOptions.orderedSorter());
+        configObj = configObj.withValue("nested", ConfigValueFactory.fromMap(nestedStringStringMap, ConfigSortingOptions.orderedSorter()));
+        try (var w = Files.newBufferedWriter(configPath)) {
+            w.write(configObj.render(ConfigRenderOptions.defaults().setConfigSorter(ConfigSortingOptions.orderedSorter())));
+        }
+
+        System.out.println("BASIC PRINT");
+        System.out.println(configObj.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.originalSorter())));
+        System.out.println("------------------------------------");
+        System.out.println("SORTED PARSED PRINT");
+        var sortedParsedConfig = ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setConfigSorter(ConfigSortingOptions.orderedSorter())).root();
+        System.out.println(sortedParsedConfig.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.orderedSorter())));
+        System.out.println("------------------------------------");
+        System.out.println("ORIGINAL PARSED PRINT");
+        var originalParsedConfig = ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setConfigSorter(ConfigSortingOptions.originalSorter())).root();
+        System.out.println(originalParsedConfig.render(ConfigRenderOptions.concise().setConfigSorter(ConfigSortingOptions.originalSorter())));
+    }
 }

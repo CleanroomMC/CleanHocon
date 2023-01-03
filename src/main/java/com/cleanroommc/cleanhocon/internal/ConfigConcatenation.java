@@ -5,11 +5,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigObject;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValueType;
+import com.cleanroommc.cleanhocon.*;
 
 /**
  * A ConfigConcatenation represents a list of values to be concatenated (see the
@@ -178,7 +174,7 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
     }
 
     @Override
-    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source)
+    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source, ConfigSorter configSorter)
             throws NotPossibleToResolve {
         if (ConfigImpl.traceSubstitutionsEnabled()) {
             int indent = context.depth() + 2;
@@ -202,7 +198,7 @@ final class ConfigConcatenation extends AbstractConfigValue implements Unmergeab
             // so unrestrict the context, then put restriction back afterward
             Path restriction = newContext.restrictToChild();
             ResolveResult<? extends AbstractConfigValue> result = newContext.unrestricted()
-                    .resolve(p, sourceWithParent);
+                    .resolve(p, sourceWithParent, configSorter);
             AbstractConfigValue r = result.value;
             newContext = result.context.restrict(restriction);
             if (ConfigImpl.traceSubstitutionsEnabled())

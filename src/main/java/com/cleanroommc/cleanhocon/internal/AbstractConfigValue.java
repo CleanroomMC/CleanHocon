@@ -67,7 +67,7 @@ abstract class AbstractConfigValue implements ConfigValue, MergeableValue {
      *            where to look up values
      * @return a new value if there were changes, or this if no changes
      */
-    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source)
+    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source, ConfigSorter configSorter)
             throws NotPossibleToResolve {
         return ResolveResult.make(context, this);
     }

@@ -20,8 +20,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     final private boolean resolved;
     final private boolean ignoresFallbacks;
 
-    SimpleConfigObject(ConfigOrigin origin,
-                       Map<String, AbstractConfigValue> value, ResolveStatus status,
+    SimpleConfigObject(ConfigOrigin origin, Map<String, AbstractConfigValue> value, ResolveStatus status,
                        boolean ignoresFallbacks, ConfigSorter configSorter) {
         super(origin);
         if (value == null)
@@ -249,7 +248,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         boolean changed = false;
         boolean allResolved = true;
         Map<String, AbstractConfigValue> merged = configSorter.getMapBacking();
-        LinkedHashSet<String> allKeys = new LinkedHashSet<>();// TODO: 28/12/2022
+        Set<String> allKeys = configSorter.getSetBacking();
         allKeys.addAll(this.keySet());
         allKeys.addAll(fallback.keySet());
         for (String key : allKeys) {
@@ -340,11 +339,13 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         final Path originalRestrict;
         ResolveContext context;
         final ResolveSource source;
+        final ConfigSorter configSorter;
 
-        ResolveModifier(ResolveContext context, ResolveSource source) {
+        ResolveModifier(ResolveContext context, ResolveSource source, ConfigSorter configSorter) {
             this.context = context;
             this.source = source;
             originalRestrict = context.restrictToChild();
+            this.configSorter = configSorter;
         }
 
         @Override
@@ -354,7 +355,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                     Path remainder = context.restrictToChild().remainder();
                     if (remainder != null) {
                         ResolveResult<? extends AbstractConfigValue> result = context.restrict(remainder).resolve(v,
-                                source);
+                                source, configSorter);
                         context = result.context.unrestricted().restrict(originalRestrict);
                         return result.value;
                     } else {
@@ -367,7 +368,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
                 }
             } else {
                 // no restrictToChild, resolve everything
-                ResolveResult<? extends AbstractConfigValue> result = context.unrestricted().resolve(v, source);
+                ResolveResult<? extends AbstractConfigValue> result = context.unrestricted().resolve(v, source, configSorter);
                 context = result.context.unrestricted().restrict(originalRestrict);
                 return result.value;
             }
@@ -376,7 +377,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     @Override
-    ResolveResult<? extends AbstractConfigObject> resolveSubstitutions(ResolveContext context, ResolveSource source)
+    ResolveResult<? extends AbstractConfigObject> resolveSubstitutions(ResolveContext context, ResolveSource source, ConfigSorter configSorter)
             throws NotPossibleToResolve {
         if (resolveStatus() == ResolveStatus.RESOLVED)
             return ResolveResult.make(context, this);
@@ -384,7 +385,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
         final ResolveSource sourceWithParent = source.pushParent(this);
 
         try {
-            ResolveModifier modifier = new ResolveModifier(context, sourceWithParent);
+            ResolveModifier modifier = new ResolveModifier(context, sourceWithParent, configSorter);
 
             AbstractConfigValue value = modifyMayThrow(modifier);
             return ResolveResult.make(modifier.context, value).asObjectResult();
@@ -429,7 +430,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
 
             int separatorCount = 0;
             String[] keys = keySet().toArray(new String[size()]);
-            var render = configSorter.getRendererSorter();
+            var render = options.getConfigSorter().getRendererSorter();
             if (render != null) {
                 Arrays.sort(keys, render);
             }
@@ -570,7 +571,7 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     public Set<Map.Entry<String, ConfigValue>> entrySet() {
         // total bloat just to work around lack of type variance
 
-        HashSet<java.util.Map.Entry<String, ConfigValue>> entries = new LinkedHashSet<>();
+        Set<java.util.Map.Entry<String, ConfigValue>> entries = configSorter.getSetBacking();
         for (Map.Entry<String, AbstractConfigValue> e : value.entrySet()) {
             entries.add(new AbstractMap.SimpleImmutableEntry<>(
                     e.getKey(), e.getValue()));
@@ -594,25 +595,23 @@ final class SimpleConfigObject extends AbstractConfigObject implements Serializa
     }
 
     final private static String EMPTY_NAME = "empty config";
-    final private static SimpleConfigObject emptyInstance = empty(SimpleConfigOrigin
-            .newSimple(EMPTY_NAME));
 
-    final static SimpleConfigObject empty() {
-        return emptyInstance;
+    static SimpleConfigObject empty(ConfigSorter configSorter) {
+        return empty(SimpleConfigOrigin.newSimple(EMPTY_NAME), configSorter);
     }
 
-    final static SimpleConfigObject empty(ConfigOrigin origin) {
+    static SimpleConfigObject empty(ConfigOrigin origin, ConfigSorter configSorter) {
         if (origin == null)
-            return empty();
+            return empty(configSorter);
         else
             return new SimpleConfigObject(origin,
-                    Collections.<String, AbstractConfigValue>emptyMap(), ConfigSortingOptions.defaultSorter());
+                    Collections.emptyMap(), configSorter);
     }
 
-    final static SimpleConfigObject emptyMissing(ConfigOrigin baseOrigin) {
+    static SimpleConfigObject emptyMissing(ConfigOrigin baseOrigin, ConfigSorter configSorter) {
         return new SimpleConfigObject(SimpleConfigOrigin.newSimple(
                 baseOrigin.description() + " (not found)"),
-                Collections.<String, AbstractConfigValue>emptyMap(), ConfigSortingOptions.defaultSorter());
+                Collections.emptyMap(), configSorter);
     }
 
     // serialization all goes through SerializedConfigValue

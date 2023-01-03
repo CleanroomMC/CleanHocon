@@ -1,6 +1,7 @@
 package com.cleanroommc.cleanhocon.internal;
 
 import com.cleanroommc.cleanhocon.ConfigException;
+import com.cleanroommc.cleanhocon.ConfigSorter;
 import com.cleanroommc.cleanhocon.internal.AbstractConfigValue.NotPossibleToResolve;
 
 /**
@@ -26,11 +27,11 @@ final class ResolveSource {
 
     // if we replace the root with a non-object, use an empty
     // object with nothing in it instead.
-    private AbstractConfigObject rootMustBeObj(Container value) {
+    private AbstractConfigObject rootMustBeObj(Container value, ConfigSorter configSorter) {
         if (value instanceof AbstractConfigObject) {
             return (AbstractConfigObject) value;
         } else {
-            return SimpleConfigObject.empty();
+            return SimpleConfigObject.empty(configSorter);
         }
     }
 
@@ -38,14 +39,14 @@ final class ResolveSource {
     // child being peeked, but NOT the child itself. Caller has to resolve
     // the child itself if needed. ValueWithPath.value can be null but
     // the ValueWithPath instance itself should not be.
-    static private ResultWithPath findInObject(AbstractConfigObject obj, ResolveContext context, Path path)
+    static private ResultWithPath findInObject(AbstractConfigObject obj, ResolveContext context, Path path, ConfigSorter configSorter)
             throws NotPossibleToResolve {
         // resolve ONLY portions of the object which are along our path
         if (ConfigImpl.traceSubstitutionsEnabled())
             ConfigImpl.trace("*** finding '" + path + "' in " + obj);
         Path restriction = context.restrictToChild();
         ResolveResult<? extends AbstractConfigValue> partiallyResolved = context.restrict(path).resolve(obj,
-                new ResolveSource(obj));
+                new ResolveSource(obj), configSorter);
         ResolveContext newContext = partiallyResolved.context.restrict(restriction);
         if (partiallyResolved.value instanceof AbstractConfigObject) {
             ValueWithPath pair = findInObject((AbstractConfigObject) partiallyResolved.value, path);
@@ -85,7 +86,7 @@ final class ResolveSource {
     }
 
     ResultWithPath lookupSubst(ResolveContext context, SubstitutionExpression subst,
-            int prefixLength)
+            int prefixLength, ConfigSorter configSorter)
             throws NotPossibleToResolve {
         if (ConfigImpl.traceSubstitutionsEnabled())
             ConfigImpl.trace(context.depth(), "searching for " + subst);
@@ -94,7 +95,7 @@ final class ResolveSource {
             ConfigImpl.trace(context.depth(), subst + " - looking up relative to file it occurred in");
         // First we look up the full path, which means relative to the
         // included file if we were not a root file
-        ResultWithPath result = findInObject(root, context, subst.path());
+        ResultWithPath result = findInObject(root, context, subst.path(), configSorter);
 
         if (result.result.value == null) {
             // Then we want to check relative to the root file. We don't
@@ -106,13 +107,13 @@ final class ResolveSource {
                 if (ConfigImpl.traceSubstitutionsEnabled())
                     ConfigImpl.trace(result.result.context.depth(), unprefixed
                             + " - looking up relative to parent file");
-                result = findInObject(root, result.result.context, unprefixed);
+                result = findInObject(root, result.result.context, unprefixed, configSorter);
             }
 
             if (result.result.value == null && result.result.context.options().getUseSystemEnvironment()) {
                 if (ConfigImpl.traceSubstitutionsEnabled())
                     ConfigImpl.trace(result.result.context.depth(), unprefixed + " - looking up in system environment");
-                result = findInObject(ConfigImpl.envVariablesAsConfigObject(), context, unprefixed);
+                result = findInObject(ConfigImpl.envVariablesAsConfigObject(), context, unprefixed, configSorter);
             }
         }
 
@@ -199,7 +200,7 @@ final class ResolveSource {
         }
     }
 
-    ResolveSource replaceCurrentParent(Container old, Container replacement) {
+    ResolveSource replaceCurrentParent(Container old, Container replacement,  ConfigSorter configSorter) {
         if (ConfigImpl.traceSubstitutionsEnabled())
             ConfigImpl.trace("replaceCurrentParent old " + old + "@" + System.identityHashCode(old) + " replacement "
                 + replacement + "@" + System.identityHashCode(old) + " in " + this);
@@ -216,10 +217,10 @@ final class ResolveSource {
             if (newPath != null)
                 return new ResolveSource((AbstractConfigObject) newPath.last(), newPath);
             else
-                return new ResolveSource(SimpleConfigObject.empty());
+                return new ResolveSource(SimpleConfigObject.empty(configSorter));
         } else {
             if (old == root) {
-                return new ResolveSource(rootMustBeObj(replacement));
+                return new ResolveSource(rootMustBeObj(replacement, configSorter));
             } else {
                 throw new ConfigException.BugOrBroken("attempt to replace root " + root + " with " + replacement);
                 // return this;
@@ -228,7 +229,7 @@ final class ResolveSource {
     }
 
     // replacement may be null to delete
-    ResolveSource replaceWithinCurrentParent(AbstractConfigValue old, AbstractConfigValue replacement) {
+    ResolveSource replaceWithinCurrentParent(AbstractConfigValue old, AbstractConfigValue replacement, ConfigSorter configSorter) {
         if (ConfigImpl.traceSubstitutionsEnabled())
             ConfigImpl.trace("replaceWithinCurrentParent old " + old + "@" + System.identityHashCode(old)
                     + " replacement " + replacement + "@" + System.identityHashCode(old) + " in " + this);
@@ -237,10 +238,10 @@ final class ResolveSource {
         } else if (pathFromRoot != null) {
             Container parent = pathFromRoot.head();
             AbstractConfigValue newParent = parent.replaceChild(old, replacement);
-            return replaceCurrentParent(parent, (newParent instanceof Container) ? (Container) newParent : null);
+            return replaceCurrentParent(parent, (newParent instanceof Container) ? (Container) newParent : null, configSorter);
         } else {
             if (old == root && replacement instanceof Container) {
-                return new ResolveSource(rootMustBeObj((Container) replacement));
+                return new ResolveSource(rootMustBeObj((Container) replacement, configSorter));
             } else {
                 throw new ConfigException.BugOrBroken("replace in parent not possible " + old + " with " + replacement
                         + " in " + this);

@@ -1,5 +1,5 @@
 /**
- *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ * Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
  */
 package com.cleanroommc.cleanhocon.internal;
 
@@ -9,12 +9,13 @@ import java.net.URL;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 import com.cleanroommc.cleanhocon.*;
 
 /**
  * Internal implementation detail, not ABI stable, do not touch.
- * For use only by the {@link com.typesafe.config} package.
+ * For use only by the {@link com.cleanroommc.cleanhocon.internal} package.
  */
 public class ConfigImpl {
     private static final String ENV_VAR_OVERRIDE_PREFIX = "CONFIG_FORCE_";
@@ -68,7 +69,7 @@ public class ConfigImpl {
     }
 
     public static Config computeCachedConfig(ClassLoader loader, String key,
-            Callable<Config> updater) {
+                                             Callable<Config> updater) {
         LoaderCache cache;
         try {
             cache = LoaderCacheHolder.cache;
@@ -84,14 +85,18 @@ public class ConfigImpl {
         public ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions) {
             return Parseable.newFile(new File(name), parseOptions);
         }
-    };
+    }
+
+    ;
 
     static class ClasspathNameSource implements SimpleIncluder.NameSource {
         @Override
         public ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions) {
             return Parseable.newResources(name, parseOptions);
         }
-    };
+    }
+
+    ;
 
     static class ClasspathNameSourceWithClass implements SimpleIncluder.NameSource {
         final private Class<?> klass;
@@ -104,16 +109,18 @@ public class ConfigImpl {
         public ConfigParseable nameToParseable(String name, ConfigParseOptions parseOptions) {
             return Parseable.newResources(klass, name, parseOptions);
         }
-    };
+    }
+
+    ;
 
     public static ConfigObject parseResourcesAnySyntax(Class<?> klass, String resourceBasename,
-            ConfigParseOptions baseOptions) {
+                                                       ConfigParseOptions baseOptions) {
         SimpleIncluder.NameSource source = new ClasspathNameSourceWithClass(klass);
         return SimpleIncluder.fromBasename(source, resourceBasename, baseOptions);
     }
 
     public static ConfigObject parseResourcesAnySyntax(String resourceBasename,
-            ConfigParseOptions baseOptions) {
+                                                       ConfigParseOptions baseOptions) {
         SimpleIncluder.NameSource source = new ClasspathNameSource();
         return SimpleIncluder.fromBasename(source, resourceBasename, baseOptions);
     }
@@ -123,18 +130,18 @@ public class ConfigImpl {
         return SimpleIncluder.fromBasename(source, basename.getPath(), baseOptions);
     }
 
-    static AbstractConfigObject emptyObject(String originDescription) {
+    static AbstractConfigObject emptyObject(String originDescription, ConfigSorter configSorter) {
         ConfigOrigin origin = originDescription != null ? SimpleConfigOrigin
                 .newSimple(originDescription) : null;
-        return emptyObject(origin);
+        return emptyObject(origin, configSorter);
     }
 
-    public static Config emptyConfig(String originDescription) {
-        return emptyObject(originDescription).toConfig();
+    public static Config emptyConfig(String originDescription, ConfigSorter configSorter) {
+        return emptyObject(originDescription, configSorter).toConfig();
     }
 
-    static AbstractConfigObject empty(ConfigOrigin origin) {
-        return emptyObject(origin);
+    static AbstractConfigObject empty(ConfigOrigin origin, ConfigSorter configSorter) {
+        return emptyObject(origin, configSorter);
     }
 
     // default origin for values created with fromAnyRef and no origin specified
@@ -147,25 +154,26 @@ public class ConfigImpl {
     final private static ConfigNull defaultNullValue = new ConfigNull(
             defaultValueOrigin);
     final private static SimpleConfigList defaultEmptyList = new SimpleConfigList(
-            defaultValueOrigin, Collections.<AbstractConfigValue> emptyList());
-    final private static SimpleConfigObject defaultEmptyObject = SimpleConfigObject
-            .empty(defaultValueOrigin);
+            defaultValueOrigin, Collections.<AbstractConfigValue>emptyList());
+    // TODO: 29/12/2022 this might not be a good idea 
+    final private static Supplier<SimpleConfigObject> defaultEmptyObject = () ->
+            SimpleConfigObject.empty(defaultValueOrigin, ConfigSortingOptions.defaultSorter());
 
     private static SimpleConfigList emptyList(ConfigOrigin origin) {
         if (origin == null || origin == defaultValueOrigin)
             return defaultEmptyList;
         else
             return new SimpleConfigList(origin,
-                    Collections.<AbstractConfigValue> emptyList());
+                    Collections.<AbstractConfigValue>emptyList());
     }
 
-    private static AbstractConfigObject emptyObject(ConfigOrigin origin) {
+    private static AbstractConfigObject emptyObject(ConfigOrigin origin, ConfigSorter configSorter) {
         // we want null origin to go to SimpleConfigObject.empty() to get the
         // origin "empty config" rather than "hardcoded value"
         if (origin == defaultValueOrigin)
-            return defaultEmptyObject;
+            return defaultEmptyObject.get();
         else
-            return SimpleConfigObject.empty(origin);
+            return SimpleConfigObject.empty(origin, configSorter);
     }
 
     private static ConfigOrigin valueOrigin(String originDescription) {
@@ -175,20 +183,17 @@ public class ConfigImpl {
             return SimpleConfigOrigin.newSimple(originDescription);
     }
 
-    public static ConfigValue fromAnyRef(Object object, String originDescription) {
+    public static ConfigValue fromAnyRef(Object object, String originDescription, ConfigSorter configSorter) {
         ConfigOrigin origin = valueOrigin(originDescription);
-        return fromAnyRef(object, origin, FromMapMode.KEYS_ARE_KEYS);
+        return fromAnyRef(object, origin, FromMapMode.KEYS_ARE_KEYS, configSorter);
     }
 
-    public static ConfigObject fromPathMap(
-            Map<String, ? extends Object> pathMap, String originDescription) {
+    public static ConfigObject fromPathMap(Map<String, ? extends Object> pathMap, String originDescription, ConfigSorter configSorter) {
         ConfigOrigin origin = valueOrigin(originDescription);
-        return (ConfigObject) fromAnyRef(pathMap, origin,
-                FromMapMode.KEYS_ARE_PATHS);
+        return (ConfigObject) fromAnyRef(pathMap, origin, FromMapMode.KEYS_ARE_PATHS, configSorter);
     }
 
-    static AbstractConfigValue fromAnyRef(Object object, ConfigOrigin origin,
-            FromMapMode mapMode) {
+    static AbstractConfigValue fromAnyRef(Object object, ConfigOrigin origin, FromMapMode mapMode, ConfigSorter configSorter) {
         if (origin == null)
             throw new ConfigException.BugOrBroken(
                     "origin not supposed to be null");
@@ -198,7 +203,7 @@ public class ConfigImpl {
                 return new ConfigNull(origin);
             else
                 return defaultNullValue;
-        } else if(object instanceof AbstractConfigValue) {
+        } else if (object instanceof AbstractConfigValue) {
             return (AbstractConfigValue) object;
         } else if (object instanceof Boolean) {
             if (origin != defaultValueOrigin) {
@@ -230,24 +235,23 @@ public class ConfigImpl {
             return new ConfigLong(origin, ((Duration) object).toMillis(), null);
         } else if (object instanceof Map) {
             if (((Map<?, ?>) object).isEmpty())
-                return emptyObject(origin);
+                return emptyObject(origin, configSorter);
 
             if (mapMode == FromMapMode.KEYS_ARE_KEYS) {
-                Map<String, AbstractConfigValue> values = ConfigSortingOptions.defaultSorter().getMapBacking();
+                Map<String, AbstractConfigValue> values = configSorter.getMapBacking();
                 for (Map.Entry<?, ?> entry : ((Map<?, ?>) object).entrySet()) {
                     Object key = entry.getKey();
                     if (!(key instanceof String))
                         throw new ConfigException.BugOrBroken(
                                 "bug in method caller: not valid to create ConfigObject from map with non-String key: "
                                         + key);
-                    AbstractConfigValue value = fromAnyRef(entry.getValue(),
-                            origin, mapMode);
+                    AbstractConfigValue value = fromAnyRef(entry.getValue(), origin, mapMode, configSorter);
                     values.put((String) key, value);
                 }
 
-                return new SimpleConfigObject(origin, values, ConfigSortingOptions.defaultSorter());
+                return new SimpleConfigObject(origin, values, configSorter);
             } else {
-                return PropertiesParser.fromPathMap(origin, (Map<?, ?>) object);
+                return PropertiesParser.fromPathMap(origin, (Map<?, ?>) object, configSorter);
             }
         } else if (object instanceof Iterable) {
             Iterator<?> i = ((Iterable<?>) object).iterator();
@@ -256,7 +260,7 @@ public class ConfigImpl {
 
             List<AbstractConfigValue> values = new ArrayList<AbstractConfigValue>();
             while (i.hasNext()) {
-                AbstractConfigValue v = fromAnyRef(i.next(), origin, mapMode);
+                AbstractConfigValue v = fromAnyRef(i.next(), origin, mapMode, configSorter);
                 values.add(v);
             }
 
@@ -287,7 +291,7 @@ public class ConfigImpl {
         final Properties systemProperties = System.getProperties();
         final Properties systemPropertiesCopy = new Properties();
         synchronized (systemProperties) {
-            for (Map.Entry<Object, Object> entry: systemProperties.entrySet()) {
+            for (Map.Entry<Object, Object> entry : systemProperties.entrySet()) {
                 // Java 11 introduces 'java.version.date', but we don't want that to
                 // overwrite 'java.version'
                 if (!entry.getKey().toString().startsWith("java.version.")) {
@@ -298,14 +302,14 @@ public class ConfigImpl {
         return systemPropertiesCopy;
     }
 
-    private static AbstractConfigObject loadSystemProperties() {
+    private static AbstractConfigObject loadSystemProperties(ConfigSorter configSorter) {
         return (AbstractConfigObject) Parseable.newProperties(getSystemProperties(),
-                ConfigParseOptions.defaults().setOriginDescription("system properties")).parse();
+                ConfigParseOptions.defaults().setOriginDescription("system properties").setConfigSorter(configSorter)).parse();
     }
 
     private static class SystemPropertiesHolder {
         // this isn't final due to the reloadSystemPropertiesConfig() hack below
-        static volatile AbstractConfigObject systemProperties = loadSystemProperties();
+        static volatile AbstractConfigObject systemProperties = loadSystemProperties(ConfigSortingOptions.defaultSorter());
     }
 
     static AbstractConfigObject systemPropertiesAsConfigObject() {
@@ -320,18 +324,18 @@ public class ConfigImpl {
         return systemPropertiesAsConfigObject().toConfig();
     }
 
-    public static void reloadSystemPropertiesConfig() {
+    public static void reloadSystemPropertiesConfig(ConfigSorter configSorter) {
         // ConfigFactory.invalidateCaches() relies on this having the side
         // effect that it drops all caches
-        SystemPropertiesHolder.systemProperties = loadSystemProperties();
+        SystemPropertiesHolder.systemProperties = loadSystemProperties(configSorter);
     }
 
-    private static AbstractConfigObject loadEnvVariables() {
-        return PropertiesParser.fromStringMap(newSimpleOrigin("env variables"), System.getenv());
+    private static AbstractConfigObject loadEnvVariables(ConfigSorter configSorter) {
+        return PropertiesParser.fromStringMap(newSimpleOrigin("env variables"), System.getenv(), configSorter);
     }
 
     private static class EnvVariablesHolder {
-        static volatile AbstractConfigObject envVariables = loadEnvVariables();
+        static volatile AbstractConfigObject envVariables = loadEnvVariables(ConfigSortingOptions.defaultSorter());
     }
 
     static AbstractConfigObject envVariablesAsConfigObject() {
@@ -346,29 +350,28 @@ public class ConfigImpl {
         return envVariablesAsConfigObject().toConfig();
     }
 
-    public static void reloadEnvVariablesConfig() {
+    public static void reloadEnvVariablesConfig(ConfigSorter configSorter) {
         // ConfigFactory.invalidateCaches() relies on this having the side
         // effect that it drops all caches
-        EnvVariablesHolder.envVariables = loadEnvVariables();
+        EnvVariablesHolder.envVariables = loadEnvVariables(configSorter);
     }
 
 
-
-    private static AbstractConfigObject loadEnvVariablesOverrides() {
-        Map<String, String> env = new HashMap(System.getenv());
-        Map<String, String> result = new HashMap();
-
+    private static AbstractConfigObject loadEnvVariablesOverrides(ConfigSorter configSorter) {
+        // TODO: 03/01/2023 might not be needed
+        Map<String, String> env = configSorter.getMapBacking();
+        env.putAll(System.getenv());
+        Map<String, String> result = configSorter.getMapBacking();
         for (String key : env.keySet()) {
             if (key.startsWith(ENV_VAR_OVERRIDE_PREFIX)) {
                 result.put(ConfigImplUtil.envVariableAsProperty(key, ENV_VAR_OVERRIDE_PREFIX), env.get(key));
             }
         }
-
-        return PropertiesParser.fromStringMap(newSimpleOrigin("env variables overrides"), result);
+        return PropertiesParser.fromStringMap(newSimpleOrigin("env variables overrides"), result, configSorter);
     }
 
     private static class EnvVariablesOverridesHolder {
-        static volatile AbstractConfigObject envVariables = loadEnvVariablesOverrides();
+        static volatile AbstractConfigObject envVariables = loadEnvVariablesOverrides(ConfigSortingOptions.defaultSorter());
     }
 
     static AbstractConfigObject envVariablesOverridesAsConfigObject() {
@@ -383,10 +386,10 @@ public class ConfigImpl {
         return envVariablesOverridesAsConfigObject().toConfig();
     }
 
-    public static void reloadEnvVariablesOverridesConfig() {
+    public static void reloadEnvVariablesOverridesConfig(ConfigSorter configSorter) {
         // ConfigFactory.invalidateCaches() relies on this having the side
         // effect that it drops all caches
-        EnvVariablesOverridesHolder.envVariables = loadEnvVariablesOverrides();
+        EnvVariablesOverridesHolder.envVariables = loadEnvVariablesOverrides(configSorter);
     }
 
     public static Config defaultReference(final ClassLoader loader) {
@@ -404,8 +407,8 @@ public class ConfigImpl {
             @Override
             public Config call() {
                 return Parseable.newResources("reference.conf",
-                        ConfigParseOptions.defaults().setClassLoader(loader))
-                    .parse().toConfig();
+                                ConfigParseOptions.defaults().setClassLoader(loader))
+                        .parse().toConfig();
             }
         });
     }
@@ -504,7 +507,7 @@ public class ConfigImpl {
     // detail about what happened. call this if you have a better "what" than
     // further down on the stack.
     static ConfigException.NotResolved improveNotResolved(Path what,
-            ConfigException.NotResolved original) {
+                                                          ConfigException.NotResolved original) {
         String newMessage = what.render()
                 + " has not been resolved, you need to call Config#resolve(),"
                 + " see API docs for Config#resolve()";

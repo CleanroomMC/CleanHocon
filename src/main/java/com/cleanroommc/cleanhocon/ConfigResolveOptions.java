@@ -30,12 +30,14 @@ public final class ConfigResolveOptions {
     private final boolean useSystemEnvironment;
     private final boolean allowUnresolved;
     private final ConfigResolver resolver;
+    private final ConfigSorter configSorter;
 
     private ConfigResolveOptions(boolean useSystemEnvironment, boolean allowUnresolved,
-                                 ConfigResolver resolver) {
+                                 ConfigResolver resolver, ConfigSorter configSorter) {
         this.useSystemEnvironment = useSystemEnvironment;
         this.allowUnresolved = allowUnresolved;
         this.resolver = resolver;
+        this.configSorter = configSorter;
     }
 
     /**
@@ -45,7 +47,7 @@ public final class ConfigResolveOptions {
      * @return the default resolve options
      */
     public static ConfigResolveOptions defaults() {
-        return new ConfigResolveOptions(true, false, NULL_RESOLVER);
+        return new ConfigResolveOptions(true, false, NULL_RESOLVER, ConfigSortingOptions.defaultSorter());
     }
 
     /**
@@ -67,7 +69,7 @@ public final class ConfigResolveOptions {
      * @return options with requested setting for use of environment variables
      */
     public ConfigResolveOptions setUseSystemEnvironment(boolean value) {
-        return new ConfigResolveOptions(value, allowUnresolved, resolver);
+        return new ConfigResolveOptions(value, allowUnresolved, resolver, configSorter);
     }
 
     /**
@@ -94,7 +96,7 @@ public final class ConfigResolveOptions {
      * @since 1.2.0
      */
     public ConfigResolveOptions setAllowUnresolved(boolean value) {
-        return new ConfigResolveOptions(useSystemEnvironment, value, resolver);
+        return new ConfigResolveOptions(useSystemEnvironment, value, resolver, configSorter);
     }
 
     /**
@@ -129,7 +131,7 @@ public final class ConfigResolveOptions {
             return this;
         } else {
             return new ConfigResolveOptions(useSystemEnvironment, allowUnresolved,
-                    this.resolver.withFallback(value));
+                    this.resolver.withFallback(value), configSorter);
         }
     }
 
@@ -155,6 +157,18 @@ public final class ConfigResolveOptions {
     public boolean getAllowUnresolved() {
         return allowUnresolved;
     }
+
+    public ConfigResolveOptions setConfigSorter(ConfigSorter configSorter) {
+        if (this.configSorter == configSorter) {
+            return this;
+        }
+        return new ConfigResolveOptions(useSystemEnvironment, allowUnresolved, resolver, configSorter);
+    }
+
+    public ConfigSorter getConfigSorter() {
+        return configSorter;
+    }
+
 
     /**
      * Singleton resolver that never resolves paths.

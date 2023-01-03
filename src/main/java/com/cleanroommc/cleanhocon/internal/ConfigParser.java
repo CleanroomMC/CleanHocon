@@ -1,5 +1,5 @@
 /**
- *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ * Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
  */
 package com.cleanroommc.cleanhocon.internal;
 
@@ -8,7 +8,6 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
@@ -21,7 +20,7 @@ final class ConfigParser {
                                      ConfigOrigin origin, ConfigParseOptions options,
                                      ConfigIncludeContext includeContext) {
         ParseContext context = new ParseContext(options.getSyntax(), origin, document,
-                SimpleIncluder.makeFull(options.getIncluder()), includeContext);
+                SimpleIncluder.makeFull(options.getIncluder()), includeContext, options.getConfigSorter());
         return context.parse();
     }
 
@@ -33,6 +32,7 @@ final class ConfigParser {
         final private ConfigSyntax flavor;
         final private ConfigOrigin baseOrigin;
         final private LinkedList<Path> pathStack;
+        final private ConfigSorter configSorter;
 
         // the number of lists we are inside; this is used to detect the "cannot
         // generate a reference to a list element" problem, and once we fix that
@@ -40,7 +40,7 @@ final class ConfigParser {
         int arrayCount;
 
         ParseContext(ConfigSyntax flavor, ConfigOrigin origin, ConfigNodeRoot document,
-                FullIncluder includer, ConfigIncludeContext includeContext) {
+                     FullIncluder includer, ConfigIncludeContext includeContext, ConfigSorter configSorter) {
             lineNumber = 1;
             this.document = document;
             this.flavor = flavor;
@@ -49,6 +49,7 @@ final class ConfigParser {
             this.includeContext = includeContext;
             this.pathStack = new LinkedList<Path>();
             this.arrayCount = 0;
+            this.configSorter = configSorter;
         }
 
         // merge a bunch of adjacent values into one
@@ -64,7 +65,7 @@ final class ConfigParser {
             for (AbstractConfigNode node : n.children()) {
                 AbstractConfigValue v = null;
                 if (node instanceof AbstractConfigNodeValue) {
-                    v = parseValue((AbstractConfigNodeValue)node, null);
+                    v = parseValue((AbstractConfigNodeValue) node, null);
                     values.add(v);
                 }
             }
@@ -100,11 +101,11 @@ final class ConfigParser {
             if (n instanceof ConfigNodeSimpleValue) {
                 v = ((ConfigNodeSimpleValue) n).value();
             } else if (n instanceof ConfigNodeObject) {
-                v = parseObject((ConfigNodeObject)n);
+                v = parseObject((ConfigNodeObject) n);
             } else if (n instanceof ConfigNodeArray) {
-                v = parseArray((ConfigNodeArray)n);
+                v = parseArray((ConfigNodeArray) n);
             } else if (n instanceof ConfigNodeConcatenation) {
-                v = parseConcatenation((ConfigNodeConcatenation)n);
+                v = parseConcatenation((ConfigNodeConcatenation) n);
             } else {
                 throw parseError("Expecting a value but got wrong node type: " + n.getClass());
             }
@@ -120,8 +121,8 @@ final class ConfigParser {
             return v;
         }
 
-        private static AbstractConfigObject createValueUnderPath(Path path,
-                AbstractConfigValue value) {
+        private AbstractConfigObject createValueUnderPath(Path path,
+                                                          AbstractConfigValue value) {
             // for path foo.bar, we are creating
             // { "foo" : { "bar" : value } }
             List<String> keys = new ArrayList<String>();
@@ -145,12 +146,12 @@ final class ConfigParser {
             ListIterator<String> i = keys.listIterator(keys.size());
             String deepest = i.previous();
             AbstractConfigObject o = new SimpleConfigObject(value.origin().withComments(null),
-                    Collections.<String, AbstractConfigValue> singletonMap(
-                            deepest, value), ConfigSortingOptions.defaultSorter());
+                    Collections.<String, AbstractConfigValue>singletonMap(
+                            deepest, value), configSorter);
             while (i.hasPrevious()) {
-                Map<String, AbstractConfigValue> m = Collections.<String, AbstractConfigValue> singletonMap(
+                Map<String, AbstractConfigValue> m = Collections.<String, AbstractConfigValue>singletonMap(
                         i.previous(), o);
-                o = new SimpleConfigObject(value.origin().withComments(null), m, ConfigSortingOptions.defaultSorter());
+                o = new SimpleConfigObject(value.origin().withComments(null), m, configSorter);
             }
 
             return o;
@@ -215,7 +216,7 @@ final class ConfigParser {
         }
 
         private AbstractConfigObject parseObject(ConfigNodeObject n) {
-            Map<String, AbstractConfigValue> values = ConfigSortingOptions.defaultSorter().getMapBacking();
+            Map<String, AbstractConfigValue> values = configSorter.getMapBacking();
             SimpleConfigOrigin objectOrigin = lineOrigin();
             boolean lastWasNewline = false;
 
@@ -234,7 +235,7 @@ final class ConfigParser {
                     }
                     lastWasNewline = true;
                 } else if (flavor != ConfigSyntax.JSON && node instanceof ConfigNodeInclude) {
-                    parseInclude(values, (ConfigNodeInclude)node);
+                    parseInclude(values, (ConfigNodeInclude) node);
                     lastWasNewline = false;
                 } else if (node instanceof ConfigNodeField) {
                     lastWasNewline = false;
@@ -287,7 +288,7 @@ final class ConfigParser {
                             if (nodes.get(i) instanceof ConfigNodeComment) {
                                 ConfigNodeComment comment = (ConfigNodeComment) nodes.get(i);
                                 newValue = newValue.withOrigin(newValue.origin().appendComments(
-                                            Collections.singletonList(comment.commentText())));
+                                        Collections.singletonList(comment.commentText())));
                                 break;
                             } else if (nodes.get(i) instanceof ConfigNodeSingleToken) {
                                 ConfigNodeSingleToken curr = (ConfigNodeSingleToken) nodes.get(i);
@@ -320,9 +321,9 @@ final class ConfigParser {
 
                             if (flavor == ConfigSyntax.JSON) {
                                 throw parseError("JSON does not allow duplicate fields: '"
-                                    + key
-                                    + "' was already seen at "
-                                    + existing.origin().description());
+                                        + key
+                                        + "' was already seen at "
+                                        + existing.origin().description());
                             } else {
                                 newValue = newValue.withFallback(existing);
                             }
@@ -345,7 +346,7 @@ final class ConfigParser {
                 }
             }
 
-            return new SimpleConfigObject(objectOrigin, values, ConfigSortingOptions.defaultSorter());
+            return new SimpleConfigObject(objectOrigin, values, configSorter);
         }
 
         private SimpleConfigList parseArray(ConfigNodeArray n) {
@@ -379,7 +380,7 @@ final class ConfigParser {
                         values.add(v.withOrigin(v.origin().appendComments(new ArrayList<String>(comments))));
                         comments.clear();
                     }
-                    v = parseValue((AbstractConfigNodeValue)node, comments);
+                    v = parseValue((AbstractConfigNodeValue) node, comments);
                 }
             }
             // There shouldn't be any comments at this point, but add them just in case
@@ -412,7 +413,7 @@ final class ConfigParser {
                         lastWasNewLine = true;
                     }
                 } else if (node instanceof ConfigNodeComplexValue) {
-                    result = parseValue((ConfigNodeComplexValue)node, comments);
+                    result = parseValue((ConfigNodeComplexValue) node, comments);
                     lastWasNewLine = false;
                 }
             }

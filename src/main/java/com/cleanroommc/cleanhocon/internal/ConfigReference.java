@@ -3,11 +3,7 @@ package com.cleanroommc.cleanhocon.internal;
 import java.util.Collection;
 import java.util.Collections;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValue;
-import com.cleanroommc.cleanhocon.ConfigValueType;
+import com.cleanroommc.cleanhocon.*;
 
 /**
  * ConfigReference replaces ConfigReference (the older class kept for back
@@ -66,11 +62,11 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
     // This way it's impossible for NotPossibleToResolve to "escape" since
     // any failure to resolve has to start with a ConfigReference.
     @Override
-    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source) {
+    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source, ConfigSorter configSorter) {
         ResolveContext newContext = context.addCycleMarker(this);
         AbstractConfigValue v;
         try {
-            ResolveSource.ResultWithPath resultWithPath = source.lookupSubst(newContext, expr, prefixLength);
+            ResolveSource.ResultWithPath resultWithPath = source.lookupSubst(newContext, expr, prefixLength, configSorter);
             newContext = resultWithPath.result.context;
 
             if (resultWithPath.result.value != null) {
@@ -85,7 +81,7 @@ final class ConfigReference extends AbstractConfigValue implements Unmergeable {
                     ConfigImpl.trace(newContext.depth(), "will recursively resolve against " + recursiveResolveSource);
 
                 ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(resultWithPath.result.value,
-                        recursiveResolveSource);
+                        recursiveResolveSource, configSorter);
                 v = result.value;
                 newContext = result.context;
             } else {

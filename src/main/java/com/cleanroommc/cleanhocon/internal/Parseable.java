@@ -160,15 +160,14 @@ public abstract class Parseable implements ConfigParseable {
         return parseValue(origin, options);
     }
 
-    final private AbstractConfigValue parseValue(ConfigOrigin origin,
-            ConfigParseOptions finalOptions) {
+    private AbstractConfigValue parseValue(ConfigOrigin origin, ConfigParseOptions finalOptions) {
         try {
             return rawParseValue(origin, finalOptions);
         } catch (IOException e) {
             if (finalOptions.getAllowMissing()) {
                 trace(e.getMessage() + ". Allowing Missing File, this can be turned off by setting" +
                         " ConfigParseOptions.allowMissing = false");
-                return SimpleConfigObject.emptyMissing(origin);
+                return SimpleConfigObject.emptyMissing(origin, finalOptions.getConfigSorter());
             } else {
                 trace("exception loading " + origin.description() + ": " + e.getClass().getName()
                         + ": " + e.getMessage());
@@ -242,7 +241,7 @@ public abstract class Parseable implements ConfigParseable {
     private AbstractConfigValue rawParseValue(Reader reader, ConfigOrigin origin,
             ConfigParseOptions finalOptions) throws IOException {
         if (finalOptions.getSyntax() == ConfigSyntax.PROPERTIES) {
-            return PropertiesParser.parse(reader, origin);
+            return PropertiesParser.parse(reader, origin, options().getConfigSorter());
         } else {
             Iterator<Token> tokens = Tokenizer.tokenize(origin, reader, finalOptions.getSyntax());
             ConfigNodeRoot document = ConfigDocumentParser.parse(tokens, origin, finalOptions);
@@ -698,8 +697,7 @@ public abstract class Parseable implements ConfigParseable {
         }
 
         @Override
-        protected AbstractConfigObject rawParseValue(ConfigOrigin origin,
-                ConfigParseOptions finalOptions) throws IOException {
+        protected AbstractConfigObject rawParseValue(ConfigOrigin origin, ConfigParseOptions finalOptions) throws IOException {
             ClassLoader loader = finalOptions.getClassLoader();
             if (loader == null)
                 throw new ConfigException.BugOrBroken(
@@ -711,7 +709,7 @@ public abstract class Parseable implements ConfigParseable {
                             + " but there were no resources called " + resource);
                 throw new IOException("resource not found on classpath: " + resource);
             }
-            AbstractConfigObject merged = SimpleConfigObject.empty(origin);
+            AbstractConfigObject merged = SimpleConfigObject.empty(origin, finalOptions.getConfigSorter());
             while (e.hasMoreElements()) {
                 URL url = e.nextElement();
 
@@ -834,7 +832,7 @@ public abstract class Parseable implements ConfigParseable {
                 ConfigParseOptions finalOptions) {
             if (ConfigImpl.traceLoadsEnabled())
                 trace("Loading config from properties " + props);
-            return PropertiesParser.fromProperties(origin, props);
+            return PropertiesParser.fromProperties(origin, props, finalOptions.getConfigSorter());
         }
 
         @Override

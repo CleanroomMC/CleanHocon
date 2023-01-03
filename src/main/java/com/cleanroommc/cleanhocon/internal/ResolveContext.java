@@ -8,6 +8,7 @@ import java.util.Set;
 
 import com.cleanroommc.cleanhocon.ConfigException;
 import com.cleanroommc.cleanhocon.ConfigResolveOptions;
+import com.cleanroommc.cleanhocon.ConfigSorter;
 import com.cleanroommc.cleanhocon.internal.AbstractConfigValue.NotPossibleToResolve;
 
 final class ResolveContext {
@@ -28,7 +29,7 @@ final class ResolveContext {
     final private Set<AbstractConfigValue> cycleMarkers;
 
     ResolveContext(ResolveMemos memos, ConfigResolveOptions options, Path restrictToChild,
-            List<AbstractConfigValue> resolveStack, Set<AbstractConfigValue> cycleMarkers) {
+                   List<AbstractConfigValue> resolveStack, Set<AbstractConfigValue> cycleMarkers) {
         this.memos = memos;
         this.options = options;
         this.restrictToChild = restrictToChild;
@@ -138,15 +139,15 @@ final class ResolveContext {
         return resolveStack.size();
     }
 
-    ResolveResult<? extends AbstractConfigValue> resolve(AbstractConfigValue original, ResolveSource source)
+    ResolveResult<? extends AbstractConfigValue> resolve(AbstractConfigValue original, ResolveSource source, ConfigSorter configSorter)
             throws NotPossibleToResolve {
         if (ConfigImpl.traceSubstitutionsEnabled())
             ConfigImpl
                     .trace(depth(), "resolving " + original + " restrictToChild=" + restrictToChild + " in " + source);
-        return pushTrace(original).realResolve(original, source).popTrace();
+        return pushTrace(original).realResolve(original, source, configSorter).popTrace();
     }
 
-    private ResolveResult<? extends AbstractConfigValue> realResolve(AbstractConfigValue original, ResolveSource source)
+    private ResolveResult<? extends AbstractConfigValue> realResolve(AbstractConfigValue original, ResolveSource source, ConfigSorter configSorter)
             throws NotPossibleToResolve {
         // a fully-resolved (no restrictToChild) object can satisfy a
         // request for a restricted object, so always check that first.
@@ -180,7 +181,7 @@ final class ResolveContext {
                 throw new NotPossibleToResolve(this);
             }
 
-            ResolveResult<? extends AbstractConfigValue> result = original.resolveSubstitutions(this, source);
+            ResolveResult<? extends AbstractConfigValue> result = original.resolveSubstitutions(this, source, configSorter);
             AbstractConfigValue resolved = result.value;
 
             if (ConfigImpl.traceSubstitutionsEnabled())
@@ -227,12 +228,12 @@ final class ResolveContext {
     }
 
     static AbstractConfigValue resolve(AbstractConfigValue value, AbstractConfigObject root,
-            ConfigResolveOptions options) {
+                                       ConfigResolveOptions options) {
         ResolveSource source = new ResolveSource(root);
         ResolveContext context = new ResolveContext(options, null /* restrictToChild */);
 
         try {
-            return context.resolve(value, source).value;
+            return context.resolve(value, source, options.getConfigSorter()).value;
         } catch (NotPossibleToResolve e) {
             // ConfigReference was supposed to catch NotPossibleToResolve
             throw new ConfigException.BugOrBroken(

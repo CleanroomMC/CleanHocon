@@ -11,12 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigList;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValue;
-import com.cleanroommc.cleanhocon.ConfigValueType;
+import com.cleanroommc.cleanhocon.*;
 
 final class SimpleConfigList extends AbstractConfigValue implements ConfigList, Container, Serializable {
 
@@ -128,22 +123,24 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
     private static class ResolveModifier implements Modifier {
         ResolveContext context;
         final ResolveSource source;
-        ResolveModifier(ResolveContext context, ResolveSource source) {
+        final ConfigSorter configSorter;
+        ResolveModifier(ResolveContext context, ResolveSource source, ConfigSorter configSorter) {
             this.context = context;
             this.source = source;
+            this.configSorter = configSorter;
         }
 
         @Override
         public AbstractConfigValue modifyChildMayThrow(String key, AbstractConfigValue v)
                     throws NotPossibleToResolve {
-            ResolveResult<? extends AbstractConfigValue> result = context.resolve(v, source);
+            ResolveResult<? extends AbstractConfigValue> result = context.resolve(v, source, configSorter);
             context = result.context;
             return result.value;
             }
     }
 
     @Override
-    ResolveResult<? extends SimpleConfigList> resolveSubstitutions(ResolveContext context, ResolveSource source)
+    ResolveResult<? extends SimpleConfigList> resolveSubstitutions(ResolveContext context, ResolveSource source ,ConfigSorter configSorter )
             throws NotPossibleToResolve {
         if (resolved)
             return ResolveResult.make(context, this);
@@ -154,7 +151,7 @@ final class SimpleConfigList extends AbstractConfigValue implements ConfigList, 
             return ResolveResult.make(context, this);
         } else {
             try {
-                ResolveModifier modifier = new ResolveModifier(context, source.pushParent(this));
+                ResolveModifier modifier = new ResolveModifier(context, source.pushParent(this), configSorter);
                 SimpleConfigList value = modifyMayThrow(modifier, context.options().getAllowUnresolved() ? null : ResolveStatus.RESOLVED);
                 return ResolveResult.make(modifier.context, value);
             } catch (NotPossibleToResolve e) {

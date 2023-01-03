@@ -1,5 +1,5 @@
 /**
- *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ * Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
  */
 package com.cleanroommc.cleanhocon;
 
@@ -23,19 +23,21 @@ import com.cleanroommc.cleanhocon.internal.ConfigImplUtil;
  *
  */
 public final class ConfigParseOptions {
-    final ConfigSyntax syntax;
-    final String originDescription;
-    final boolean allowMissing;
-    final ConfigIncluder includer;
-    final ClassLoader classLoader;
+    private final ConfigSyntax syntax;
+    private final String originDescription;
+    private final boolean allowMissing;
+    private final ConfigIncluder includer;
+    private final ClassLoader classLoader;
+    private final ConfigSorter configSorter;
 
     private ConfigParseOptions(ConfigSyntax syntax, String originDescription, boolean allowMissing,
-            ConfigIncluder includer, ClassLoader classLoader) {
+                               ConfigIncluder includer, ClassLoader classLoader, ConfigSorter configSorter) {
         this.syntax = syntax;
         this.originDescription = originDescription;
         this.allowMissing = allowMissing;
         this.includer = includer;
         this.classLoader = classLoader;
+        this.configSorter = configSorter;
     }
 
     /**
@@ -45,7 +47,7 @@ public final class ConfigParseOptions {
      * @return the default parse options
      */
     public static ConfigParseOptions defaults() {
-        return new ConfigParseOptions(null, null, true, null, null);
+        return new ConfigParseOptions(null, null, true, null, null, ConfigSortingOptions.defaultSorter());
     }
 
     /**
@@ -61,7 +63,7 @@ public final class ConfigParseOptions {
             return this;
         else
             return new ConfigParseOptions(syntax, this.originDescription, this.allowMissing,
-                    this.includer, this.classLoader);
+                    this.includer, this.classLoader, this.configSorter);
     }
 
     /**
@@ -103,7 +105,7 @@ public final class ConfigParseOptions {
             return this;
         else
             return new ConfigParseOptions(this.syntax, originDescription, this.allowMissing,
-                    this.includer, this.classLoader);
+                    this.includer, this.classLoader, this.configSorter);
     }
 
     /**
@@ -136,7 +138,7 @@ public final class ConfigParseOptions {
             return this;
         else
             return new ConfigParseOptions(this.syntax, this.originDescription, allowMissing,
-                    this.includer, this.classLoader);
+                    this.includer, this.classLoader, this.configSorter);
     }
 
     /**
@@ -159,7 +161,7 @@ public final class ConfigParseOptions {
             return this;
         else
             return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
-                    includer, this.classLoader);
+                    includer, this.classLoader, this.configSorter);
     }
 
     /**
@@ -223,7 +225,7 @@ public final class ConfigParseOptions {
             return this;
         else
             return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
-                    this.includer, loader);
+                    this.includer, loader, this.configSorter);
     }
 
     /**
@@ -238,5 +240,17 @@ public final class ConfigParseOptions {
             return Thread.currentThread().getContextClassLoader();
         else
             return this.classLoader;
+    }
+
+    public ConfigParseOptions setConfigSorter(ConfigSorter configSorter) {
+        if (this.configSorter == configSorter)
+            return this;
+        else
+            return new ConfigParseOptions(this.syntax, this.originDescription, this.allowMissing,
+                    this.includer, this.classLoader, configSorter);
+    }
+
+    public ConfigSorter getConfigSorter() {
+        return configSorter;
     }
 }

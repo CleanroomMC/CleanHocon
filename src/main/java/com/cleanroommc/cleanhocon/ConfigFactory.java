@@ -554,9 +554,13 @@ public final class ConfigFactory {
     public static void invalidateCaches() {
         // We rely on this having the side effect that it drops
         // all caches
-        ConfigImpl.reloadSystemPropertiesConfig();
-        ConfigImpl.reloadEnvVariablesConfig();
-        ConfigImpl.reloadEnvVariablesOverridesConfig();
+        invalidateCaches(ConfigSortingOptions.defaultSorter());
+    }
+
+    public static void invalidateCaches(ConfigSorter configSorter) {
+        ConfigImpl.reloadSystemPropertiesConfig(configSorter);
+        ConfigImpl.reloadEnvVariablesConfig(configSorter);
+        ConfigImpl.reloadEnvVariablesOverridesConfig(configSorter);
     }
 
     /**
@@ -583,7 +587,12 @@ public final class ConfigFactory {
      * @return an empty configuration
      */
     public static Config empty(String originDescription) {
-        return ConfigImpl.emptyConfig(originDescription);
+        return empty(originDescription, ConfigSortingOptions.defaultSorter());
+    }
+
+    // TODO: 03/01/2023 add java dock
+    public static Config empty(String originDescription, ConfigSorter configSorter) {
+        return ConfigImpl.emptyConfig(originDescription, configSorter);
     }
 
     /**
@@ -1221,9 +1230,13 @@ public final class ConfigFactory {
      *            messages)
      * @return the map converted to a {@code Config}
      */
-    public static Config parseMap(Map<String, ? extends Object> values,
-            String originDescription) {
-        return ConfigImpl.fromPathMap(values, originDescription).toConfig();
+    public static Config parseMap(Map<String, ? extends Object> values, String originDescription) {
+        return parseMap(values, originDescription, ConfigSortingOptions.defaultSorter());
+    }
+
+    // TODO: 03/01/2023 add java dock 
+    public static Config parseMap(Map<String, ? extends Object> values, String originDescription , ConfigSorter configSorter) {
+        return ConfigImpl.fromPathMap(values, originDescription, configSorter).toConfig();
     }
 
     /**

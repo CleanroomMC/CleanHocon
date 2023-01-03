@@ -1,5 +1,5 @@
 /**
- *   Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
+ * Copyright (C) 2011-2012 Typesafe Inc. <http://typesafe.com>
  */
 package com.cleanroommc.cleanhocon.internal;
 
@@ -8,10 +8,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-import com.cleanroommc.cleanhocon.ConfigException;
-import com.cleanroommc.cleanhocon.ConfigOrigin;
-import com.cleanroommc.cleanhocon.ConfigRenderOptions;
-import com.cleanroommc.cleanhocon.ConfigValueType;
+import com.cleanroommc.cleanhocon.*;
 
 /**
  * The issue here is that we want to first merge our stack of config files, and
@@ -54,15 +51,16 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
     }
 
     @Override
-    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source)
+    ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ResolveContext context, ResolveSource source, ConfigSorter configSorter)
             throws NotPossibleToResolve {
-        return resolveSubstitutions(this, stack, context, source);
+        return resolveSubstitutions(this, stack, context, source, configSorter);
     }
 
     // static method also used by ConfigDelayedMergeObject
     static ResolveResult<? extends AbstractConfigValue> resolveSubstitutions(ReplaceableMergeStack replaceable,
-            List<AbstractConfigValue> stack,
-            ResolveContext context, ResolveSource source) throws NotPossibleToResolve {
+                                                                             List<AbstractConfigValue> stack,
+                                                                             ResolveContext context, ResolveSource source,
+                                                                             ConfigSorter configSorter) throws NotPossibleToResolve {
         if (ConfigImpl.traceSubstitutionsEnabled()) {
             ConfigImpl.trace(context.depth(), "delayed merge stack has " + stack.size() + " items:");
             int count = 0;
@@ -107,7 +105,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
 
                 // we resetParents() here because we'll be resolving "end"
                 // against a root which does NOT contain "end"
-                sourceForEnd = source.replaceWithinCurrentParent((AbstractConfigValue) replaceable, remainder);
+                sourceForEnd = source.replaceWithinCurrentParent((AbstractConfigValue) replaceable, remainder, configSorter);
 
                 if (ConfigImpl.traceSubstitutionsEnabled())
                     ConfigImpl.trace(newContext.depth(), "  sourceForEnd before reset parents but after replace: "
@@ -129,7 +127,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
             if (ConfigImpl.traceSubstitutionsEnabled())
                 ConfigImpl.trace(newContext.depth(), "Resolving highest-priority item in delayed merge " + end
                         + " against " + sourceForEnd + " endWasRemoved=" + (source != sourceForEnd));
-            ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(end, sourceForEnd);
+            ResolveResult<? extends AbstractConfigValue> result = newContext.resolve(end, sourceForEnd, configSorter);
             AbstractConfigValue resolvedEnd = result.value;
             newContext = result.context;
 
@@ -253,7 +251,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
         if (other instanceof ConfigDelayedMerge) {
             return canEqual(other)
                     && (this.stack == ((ConfigDelayedMerge) other).stack || this.stack
-                            .equals(((ConfigDelayedMerge) other).stack));
+                    .equals(((ConfigDelayedMerge) other).stack));
         } else {
             return false;
         }
@@ -277,7 +275,7 @@ final class ConfigDelayedMerge extends AbstractConfigValue implements Unmergeabl
 
     // static method also used by ConfigDelayedMergeObject.
     static void render(List<AbstractConfigValue> stack, StringBuilder sb, int indent, boolean atRoot, String atKey,
-            ConfigRenderOptions options) {
+                       ConfigRenderOptions options) {
         boolean commentMerge = options.getComments();
         if (commentMerge) {
             sb.append("# unresolved merge of " + stack.size() + " values follows (\n");

@@ -179,7 +179,7 @@ class SimpleIncluder implements FullIncluder {
 
             ConfigSyntax syntax = options.getSyntax();
 
-            obj = SimpleConfigObject.empty(SimpleConfigOrigin.newSimple(name));
+            obj = SimpleConfigObject.empty(SimpleConfigOrigin.newSimple(name), options.getConfigSorter());
             if (syntax == null || syntax == ConfigSyntax.CONF) {
                 try {
                     obj = confHandle.parse(confHandle.options().setAllowMissing(false)
